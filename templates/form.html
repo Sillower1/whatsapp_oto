@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>WhatsApp Mesaj Gönder</title>
+</head>
+<body>
+    <h2>📲 WhatsApp Mesaj Gönder</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <label>📂 Excel Yükle (.xlsx):</label>
+        <input type="file" name="excel_file" accept=".xlsx"><br><br>
+
+        <label>✍️ Manuel Numara Gir (birden fazla için virgül kullan):</label><br>
+        <input type="text" name="manuel_numaralar" placeholder="+905321234567,05341234567"><br><br>
+
+        <label>💬 Mesaj:</label><br>
+        <textarea name="mesaj" rows="10" cols="60" required></textarea><br><br>
+
+        <button type="submit">✅ Mesaj Gönder</button>
+    </form>
+</body>
+</html>
