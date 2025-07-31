@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 import time
 import os
@@ -7,8 +8,11 @@ import subprocess
 import threading
 import queue
 from datetime import datetime
+import uuid
 
 app = Flask(__name__)
+CORS(app)  # Frontend'den gelen isteklere izin ver
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -105,9 +109,9 @@ main().catch(console.error);
 def create_package_json():
     """package.json dosyasını oluşturur"""
     package_content = {
-        "name": "whatsapp-oto",
+        "name": "whatsapp-oto-backend",
         "version": "1.0.0",
-        "description": "WhatsApp Otomatik Mesaj Gönderici",
+        "description": "WhatsApp Otomatik Mesaj Gönderici Backend",
         "main": "whatsapp_sender.js",
         "dependencies": {
             "whatsapp-web.js": "^1.23.0",
@@ -160,66 +164,141 @@ def send_whatsapp_messages(phone_numbers, message):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        mesaj = request.form.get('mesaj')
-        excel_file = request.files.get('excel_file')
-        manuel_input = request.form.get('manuel_numaralar')
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """API sağlık kontrolü"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'service': 'WhatsApp Oto Backend'
+    })
 
+@app.route('/api/send-messages', methods=['POST'])
+def send_messages():
+    """Mesaj gönderme API endpoint'i"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'JSON verisi gerekli'}), 400
+        
+        message = data.get('message')
+        phone_numbers = data.get('phone_numbers', [])
+        excel_file = data.get('excel_file')  # Base64 encoded Excel file
+        
+        if not message:
+            return jsonify({'error': 'Mesaj gerekli'}), 400
+        
+        if not phone_numbers and not excel_file:
+            return jsonify({'error': 'Telefon numaraları veya Excel dosyası gerekli'}), 400
+        
         hedef_numaralar = set()
-
+        
         # Excel dosyasından numaraları al
-        if excel_file and excel_file.filename.endswith('.xlsx'):
-            file_path = os.path.join(UPLOAD_FOLDER, excel_file.filename)
-            excel_file.save(file_path)
+        if excel_file:
             try:
-                df = pd.read_excel(file_path)
+                import base64
+                import io
+                
+                # Base64'ten decode et
+                excel_data = base64.b64decode(excel_file.split(',')[1])
+                excel_io = io.BytesIO(excel_data)
+                
+                df = pd.read_excel(excel_io)
                 if 'Telefon' in df.columns:
                     for tel in df['Telefon']:
                         if pd.notna(tel):
                             hedef_numaralar.add(normalize_tel(tel))
+                else:
+                    return jsonify({'error': 'Excel dosyasında "Telefon" sütunu bulunamadı'}), 400
+                    
             except Exception as e:
-                return f"Excel okuma hatası: {e}"
-
-        # Manuel girilen numaraları işle
-        if manuel_input:
-            manuel_list = manuel_input.split(',')
-            for tel in manuel_list:
-                tel = tel.strip()
-                if tel:
-                    hedef_numaralar.add(normalize_tel(tel))
-
-        # Numara yoksa uyar
+                return jsonify({'error': f'Excel okuma hatası: {str(e)}'}), 400
+        
+        # Manuel numaraları ekle
+        for tel in phone_numbers:
+            if tel.strip():
+                hedef_numaralar.add(normalize_tel(tel))
+        
         if not hedef_numaralar:
-            return "❌ Hiçbir numara belirtilmedi."
-
+            return jsonify({'error': 'Hiçbir geçerli numara bulunamadı'}), 400
+        
         # WhatsApp mesajlarını gönder
         phone_list = list(hedef_numaralar)
-        result = send_whatsapp_messages(phone_list, mesaj)
+        result = send_whatsapp_messages(phone_list, message)
         
         if result['success']:
-            return "✅ Mesajlar başarıyla gönderildi! WhatsApp Web'de QR kodu okutmanız gerekebilir."
+            return jsonify({
+                'success': True,
+                'message': 'Mesajlar başarıyla gönderildi',
+                'sent_count': len(phone_list),
+                'phone_numbers': phone_list
+            })
         else:
-            return f"❌ Hata: {result['error']}"
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Sunucu hatası: {str(e)}'}), 500
 
-    return render_template('form.html')
+@app.route('/api/validate-numbers', methods=['POST'])
+def validate_numbers():
+    """Telefon numaralarını doğrular"""
+    try:
+        data = request.get_json()
+        phone_numbers = data.get('phone_numbers', [])
+        
+        validated_numbers = []
+        invalid_numbers = []
+        
+        for tel in phone_numbers:
+            normalized = normalize_tel(tel)
+            if len(normalized) >= 10:  # Basit doğrulama
+                validated_numbers.append(normalized)
+            else:
+                invalid_numbers.append(tel)
+        
+        return jsonify({
+            'valid_numbers': validated_numbers,
+            'invalid_numbers': invalid_numbers,
+            'total_valid': len(validated_numbers),
+            'total_invalid': len(invalid_numbers)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Doğrulama hatası: {str(e)}'}), 500
 
-@app.route('/status')
+@app.route('/api/status', methods=['GET'])
 def status():
     """WhatsApp bağlantı durumunu kontrol eder"""
-    return jsonify({'status': 'ready'})
+    return jsonify({
+        'status': 'ready',
+        'timestamp': datetime.now().isoformat()
+    })
+
+# Render için başlangıçta gerekli dosyaları oluştur
+def initialize_app():
+    """Uygulama başlangıcında gerekli dosyaları oluşturur"""
+    try:
+        create_whatsapp_script()
+        create_package_json()
+        
+        # Sadece development'ta bağımlılıkları yükle
+        if os.environ.get('FLASK_ENV') != 'production':
+            print("Node.js bağımlılıkları yükleniyor...")
+            if install_dependencies():
+                print("✅ Bağımlılıklar yüklendi")
+            else:
+                print("❌ Bağımlılık yükleme hatası")
+    except Exception as e:
+        print(f"Başlangıç hatası: {e}")
+
+# Uygulama başlangıcında dosyaları oluştur
+initialize_app()
 
 if __name__ == '__main__':
-    # Gerekli dosyaları oluştur
-    create_whatsapp_script()
-    create_package_json()
-    
-    # Bağımlılıkları yükle
-    print("Node.js bağımlılıkları yükleniyor...")
-    if install_dependencies():
-        print("✅ Bağımlılıklar yüklendi")
-    else:
-        print("❌ Bağımlılık yükleme hatası")
-    
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Production için port ayarı
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port) 

@@ -2,21 +2,238 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WhatsApp Mesaj Gönder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+
+        input[type="file"], input[type="text"], textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input[type="file"]:focus, input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border: 1px solid #ff9800;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #f57c00;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h2 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h2>📲 WhatsApp Mesaj Gönder</h2>
-    <form method="POST" enctype="multipart/form-data">
-        <label>📂 Excel Yükle (.xlsx):</label>
-        <input type="file" name="excel_file" accept=".xlsx"><br><br>
+    <div class="container">
+        <h2>📲 WhatsApp Mesaj Gönder</h2>
+        
+        <div class="info-box">
+            <strong>ℹ️ Bilgi:</strong> İlk kullanımda WhatsApp Web QR kodunu okutmanız gerekecektir.
+        </div>
 
-        <label>✍️ Manuel Numara Gir (birden fazla için virgül kullan):</label><br>
-        <input type="text" name="manuel_numaralar" placeholder="+905321234567,05341234567"><br><br>
+        <form method="POST" enctype="multipart/form-data" id="whatsappForm">
+            <div class="form-group">
+                <label>📂 Excel Dosyası Yükle (.xlsx):</label>
+                <div class="file-input-wrapper">
+                    <input type="file" name="excel_file" accept=".xlsx" id="excelFile">
+                </div>
+                <small style="color: #666; margin-top: 5px; display: block;">
+                    Excel dosyasında "Telefon" sütunu bulunmalıdır.
+                </small>
+            </div>
 
-        <label>💬 Mesaj:</label><br>
-        <textarea name="mesaj" rows="10" cols="60" required></textarea><br><br>
+            <div class="form-group">
+                <label>✍️ Manuel Numara Girişi:</label>
+                <input type="text" name="manuel_numaralar" placeholder="+905321234567, 05341234567" id="manualNumbers">
+                <small style="color: #666; margin-top: 5px; display: block;">
+                    Birden fazla numara için virgül kullanın.
+                </small>
+            </div>
 
-        <button type="submit">✅ Mesaj Gönder</button>
-    </form>
+            <div class="form-group">
+                <label>💬 Mesaj:</label>
+                <textarea name="mesaj" placeholder="Göndermek istediğiniz mesajı buraya yazın..." required id="message"></textarea>
+            </div>
+
+            <div class="warning-box">
+                <strong>⚠️ Önemli:</strong> 
+                <ul style="margin: 10px 0 0 20px;">
+                    <li>Mesajlar arasında 2 saniye bekleme süresi vardır</li>
+                    <li>Çok fazla mesaj göndermekten kaçının</li>
+                    <li>WhatsApp kurallarına uygun kullanın</li>
+                </ul>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                ✅ Mesaj Gönder
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Mesajlar gönderiliyor, lütfen bekleyin...</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('whatsappForm').addEventListener('submit', function(e) {
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const excelFile = document.getElementById('excelFile');
+            const manualNumbers = document.getElementById('manualNumbers');
+            const message = document.getElementById('message');
+
+            // Form validasyonu
+            if (!message.value.trim()) {
+                alert('Lütfen bir mesaj girin!');
+                e.preventDefault();
+                return;
+            }
+
+            if (!excelFile.files[0] && !manualNumbers.value.trim()) {
+                alert('Lütfen Excel dosyası yükleyin veya manuel numara girin!');
+                e.preventDefault();
+                return;
+            }
+
+            // Loading göster
+            submitBtn.style.display = 'none';
+            loading.style.display = 'block';
+        });
+    </script>
 </body>
 </html>

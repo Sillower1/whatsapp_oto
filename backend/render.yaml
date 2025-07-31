@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: whatsapp-oto-backend
+    env: python
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      - key: FLASK_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend.vercel.app
+    healthCheckPath: /api/health
+    autoDeploy: true 
